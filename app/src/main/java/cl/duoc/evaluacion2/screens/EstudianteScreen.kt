@@ -24,39 +24,39 @@ data class Asignatura(
     val descripcion: String
 )
 
+// ASIGNATURAS DE PRIMERO BASICO
 private val asignaturas = listOf(
 
     Asignatura(
-        "lenguaje",
-        "Lenguaje y Comunicación",
-        "📖",
-        "Vocales y palabras"
+        id = "lenguaje",
+        nombre = "Lenguaje y Comunicación",
+        emoji = "📖",
+        descripcion = "Vocales y palabras"
     ),
 
     Asignatura(
-        "matematica",
-        "Matemática",
-        "🔢",
-        "Números y conteo"
+        id = "matematica",
+        nombre = "Matemática",
+        emoji = "🔢",
+        descripcion = "Números y conteo"
     ),
 
     Asignatura(
-        "ciencias",
-        "Ciencias Naturales",
-        "🌱",
-        "Seres vivos y naturaleza"
+        id = "ciencias",
+        nombre = "Ciencias Naturales",
+        emoji = "🌱",
+        descripcion = "Seres vivos y naturaleza"
     ),
 
     Asignatura(
-        "historia",
-        "Historia, Geografía y Ciencias Sociales",
-        "🌎",
-        "Familia y comunidad"
+        id = "historia",
+        nombre = "Historia, Geografía y Ciencias Sociales",
+        emoji = "🌎",
+        descripcion = "Familia y comunidad"
     )
 )
 
-// Comprueba si existe una asignacion
-// y si ya llego su fecha de disponibilidad.
+// COMPROBAR DISPONIBILIDAD SEGUN EL DOCENTE
 fun estaAsignaturaDisponible(
     asignacion: AsignacionDocente?
 ): Boolean {
@@ -70,43 +70,72 @@ fun estaAsignaturaDisponible(
         val fechaDisponible =
             LocalDate.parse(asignacion.fecha)
 
-        !fechaDisponible.isAfter(LocalDate.now())
+        !fechaDisponible.isAfter(
+            LocalDate.now()
+        )
 
     } catch (e: Exception) {
+
         false
     }
 }
 
+// PANTALLA PRINCIPAL DEL ESTUDIANTE
 @Composable
 fun EstudianteScreen(
     resultadoMatematica: ResultadoMatematica,
     resultadosPorAsignatura: Map<String, ResultadoAsignatura>,
     asignaciones: Map<String, AsignacionDocente>,
     onAbrirAsignatura: (String) -> Unit,
+    onAbrirPruebaFinal: (String) -> Unit,
     onCerrarSesion: () -> Unit
 ) {
 
-    val habilitadas = asignaturas.count {
+    // TOTAL DE ASIGNATURAS HABILITADAS
+    val habilitadas = asignaturas.count { asignatura ->
+
         estaAsignaturaDisponible(
-            asignaciones[it.id]
+            asignaciones[asignatura.id]
         )
     }
 
+    // COMPROBAR SI UNA PRACTICA ESTA COMPLETADA
+    fun practicaCompletada(id: String): Boolean {
+
+        return if (id == "matematica") {
+
+            resultadoMatematica.completada
+
+        } else {
+
+            resultadosPorAsignatura[
+                id
+            ]?.completada == true
+        }
+    }
+
+    // TOTAL DE ACTIVIDADES COMPLETADAS Y HABILITADAS
     val completadas = asignaturas.count { asignatura ->
 
         val disponible = estaAsignaturaDisponible(
             asignaciones[asignatura.id]
         )
 
-        if (!disponible) {
-            false
-        } else if (asignatura.id == "matematica") {
-            resultadoMatematica.completada
-        } else {
-            resultadosPorAsignatura[
-                asignatura.id
-            ]?.completada == true
-        }
+        disponible && practicaCompletada(
+            asignatura.id
+        )
+    }
+
+    // PRUEBAS FINALES DESBLOQUEADAS
+    val pruebasDisponibles = asignaturas.filter { asignatura ->
+
+        val disponible = estaAsignaturaDisponible(
+            asignaciones[asignatura.id]
+        )
+
+        disponible && practicaCompletada(
+            asignatura.id
+        )
     }
 
     Column(
@@ -116,31 +145,37 @@ fun EstudianteScreen(
             .padding(20.dp)
     ) {
 
+        // ENCABEZADO
         Text(
             text = "¡Hola, estudiante! 👋",
             style = MaterialTheme.typography.headlineMedium
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        Text("Bienvenido a MPAZ PRO 1.º")
+        Text(
+            text = "Bienvenido a MPAZ PRO 1.º"
+        )
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
+        // SECCION ASIGNATURAS
         Text(
             text = "Mis asignaturas",
             style = MaterialTheme.typography.titleLarge
         )
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "Tu profesor habilitará las actividades que puedes realizar.",
+            text = "Tu profesor habilitará las actividades " +
+                    "que puedes realizar.",
             style = MaterialTheme.typography.bodyMedium
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
+        // TARJETAS DE LAS CUATRO ASIGNATURAS
         asignaturas.forEach { asignatura ->
 
             val asignacion = asignaciones[
@@ -163,14 +198,18 @@ fun EstudianteScreen(
                     "✅ Actividad disponible"
             }
 
+            // MOSTRAR EL ULTIMO RESULTADO
             val resultado = if (
                 asignatura.id == "matematica"
             ) {
 
                 if (resultadoMatematica.completada) {
+
                     "${resultadoMatematica.aciertos}/" +
                             "${resultadoMatematica.total}"
+
                 } else {
+
                     null
                 }
 
@@ -179,8 +218,11 @@ fun EstudianteScreen(
                 resultadosPorAsignatura[
                     asignatura.id
                 ]?.takeIf {
+
                     it.completada
+
                 }?.let {
+
                     "${it.aciertos}/${it.total}"
                 }
             }
@@ -191,6 +233,7 @@ fun EstudianteScreen(
                     .clickable(
                         enabled = disponible
                     ) {
+
                         onAbrirAsignatura(
                             asignatura.id
                         )
@@ -207,7 +250,7 @@ fun EstudianteScreen(
                         style = MaterialTheme.typography.headlineLarge
                     )
 
-                    Spacer(Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
 
                     Column(
                         modifier = Modifier.weight(1f)
@@ -218,83 +261,100 @@ fun EstudianteScreen(
                             style = MaterialTheme.typography.titleMedium
                         )
 
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         Text(
                             text = asignatura.descripcion,
                             style = MaterialTheme.typography.bodySmall
                         )
 
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         Text(
                             text = estado,
                             color = if (disponible) {
+
                                 MaterialTheme.colorScheme.primary
+
                             } else {
+
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             }
                         )
 
+                        // RESULTADO DE LA PRACTICA
                         if (disponible && resultado != null) {
 
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
                                 text = "Último resultado: $resultado"
                             )
                         }
 
+                        // CONFIGURACION DEL DOCENTE
                         if (disponible && asignacion != null) {
 
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
-                                text = "Intentos permitidos en " +
-                                        "prueba final: " +
+                                text = "Intentos configurados " +
+                                        "para prueba final: " +
                                         asignacion.maxIntentos,
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
                     }
 
+                    Spacer(modifier = Modifier.width(4.dp))
+
                     Text(
-                        if (disponible) "›" else "🔒"
+                        text = if (disponible) {
+                            "›"
+                        } else {
+                            "🔒"
+                        }
                     )
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
+        // SECCION PROGRESO
         Text(
             text = "Mi progreso",
             style = MaterialTheme.typography.titleLarge
         )
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         val progreso = if (habilitadas > 0) {
+
             completadas.toFloat() / habilitadas
+
         } else {
+
             0f
         }
 
         LinearProgressIndicator(
-            progress = { progreso },
+            progress = {
+                progreso
+            },
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
             text = "$completadas de $habilitadas " +
                     "actividades disponibles completadas"
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
             text = "El progreso corresponde a las " +
@@ -302,17 +362,107 @@ fun EstudianteScreen(
             style = MaterialTheme.typography.bodySmall
         )
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
+        HorizontalDivider()
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // NUEVA SECCION: PRUEBAS FINALES
+        Text(
+            text = "📝 Pruebas finales",
+            style = MaterialTheme.typography.titleLarge
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Completa primero la actividad de una " +
+                    "asignatura para desbloquear su prueba final.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (pruebasDisponibles.isEmpty()) {
+
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+
+                    Text(
+                        text = "🔒 Pruebas bloqueadas",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Todavía no tienes pruebas finales " +
+                                "disponibles. Completa una actividad " +
+                                "habilitada por tu profesor."
+                    )
+                }
+            }
+
+        } else {
+
+            pruebasDisponibles.forEach { asignatura ->
+
+                OutlinedButton(
+                    onClick = {
+
+                        onAbrirPruebaFinal(
+                            asignatura.id
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+
+                    Text(
+                        text = "${asignatura.emoji} " +
+                                "Prueba final: ${asignatura.nombre}"
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Las pruebas finales funcionan " +
+                        "en modo demostración. Los intentos " +
+                        "reales se implementarán en una " +
+                        "futura actualización.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        HorizontalDivider()
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // CERRAR SESION
         OutlinedButton(
             onClick = onCerrarSesion,
             modifier = Modifier.fillMaxWidth()
         ) {
+
             Text("Cerrar sesión")
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
+// PANTALLA AUXILIAR DE ASIGNATURA
 @Composable
 fun PantallaAsignaturaScreen(
     id: String,
@@ -332,17 +482,29 @@ fun PantallaAsignaturaScreen(
     ) {
 
         Text(
+            text = asignatura?.emoji ?: "📚",
+            style = MaterialTheme.typography.displayLarge
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
             text = asignatura?.nombre ?: "Asignatura",
             style = MaterialTheme.typography.headlineSmall
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        Text("Contenido no disponible todavía")
+        Text(
+            text = "Contenido no disponible todavía."
+        )
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        Button(onClick = onVolver) {
+        Button(
+            onClick = onVolver
+        ) {
+
             Text("Volver")
         }
     }

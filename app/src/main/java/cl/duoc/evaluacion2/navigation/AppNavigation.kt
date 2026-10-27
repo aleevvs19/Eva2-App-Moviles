@@ -1,6 +1,6 @@
-
 package cl.duoc.evaluacion2.navigation
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -9,9 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-
 import androidx.lifecycle.viewmodel.compose.viewModel
-
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -20,22 +18,25 @@ import cl.duoc.evaluacion2.PantallaInicio
 import cl.duoc.evaluacion2.local.AppDatabase
 
 import cl.duoc.evaluacion2.screens.LoginScreen
+import cl.duoc.evaluacion2.screens.RegistroScreen
 import cl.duoc.evaluacion2.screens.EstudianteScreen
 import cl.duoc.evaluacion2.screens.ActividadMatematicaScreen
 import cl.duoc.evaluacion2.screens.ActividadOtraAsignaturaScreen
 import cl.duoc.evaluacion2.screens.DocenteScreen
 import cl.duoc.evaluacion2.screens.UTPScreen
+import cl.duoc.evaluacion2.screens.PruebaFinalScreen
+import cl.duoc.evaluacion2.screens.PantallaPruebaBloqueada
+import cl.duoc.evaluacion2.screens.InformePedagogicoScreen
 import cl.duoc.evaluacion2.screens.estaAsignaturaDisponible
 
 import cl.duoc.evaluacion2.viewmodel.LoginViewModel
 import cl.duoc.evaluacion2.viewmodel.LoginViewModelFactory
-
+import cl.duoc.evaluacion2.viewmodel.RegistroViewModel
+import cl.duoc.evaluacion2.viewmodel.RegistroViewModelFactory
 import cl.duoc.evaluacion2.viewmodel.EstudianteViewModel
 import cl.duoc.evaluacion2.viewmodel.EstudianteViewModelFactory
-
 import cl.duoc.evaluacion2.viewmodel.DocenteViewModel
 import cl.duoc.evaluacion2.viewmodel.DocenteViewModelFactory
-
 import cl.duoc.evaluacion2.viewmodel.UTPViewModel
 import cl.duoc.evaluacion2.viewmodel.UTPViewModelFactory
 
@@ -82,7 +83,7 @@ fun AppNavigation() {
         startDestination = "inicio"
     ) {
 
-        // SELECCION DE PERFIL
+        // PANTALLA INICIAL
         composable("inicio") {
 
             PantallaInicio(
@@ -92,7 +93,7 @@ fun AppNavigation() {
             )
         }
 
-        // LOGIN CON ROOM
+        // INICIO DE SESION
         composable("login/{perfil}") { entrada ->
 
             val perfil = entrada.arguments
@@ -133,11 +134,68 @@ fun AppNavigation() {
 
                 onVolver = {
                     navController.popBackStack()
+                },
+
+                onRegistrarse = {
+                    navController.navigate("registro")
                 }
             )
         }
 
-        // PANEL ESTUDIANTE
+        // REGISTRO CON SQLITE / ROOM
+        composable("registro") {
+
+            val registroViewModel: RegistroViewModel = viewModel(
+                factory = RegistroViewModelFactory(
+                    usuarioDao
+                )
+            )
+
+            RegistroScreen(
+                cargando = registroViewModel.cargando,
+                mensajeError = registroViewModel.error,
+
+                onRegistrar = {
+                        nombre,
+                        correo,
+                        contrasena,
+                        confirmarContrasena ->
+
+                    registroViewModel.registrar(
+                        nombre = nombre,
+                        correo = correo,
+                        contrasena = contrasena,
+                        confirmarContrasena = confirmarContrasena,
+
+                        onExito = {
+
+                            Toast.makeText(
+                                context,
+                                "Cuenta registrada. Ahora inicia sesión.",
+                                Toast.LENGTH_LONG
+                            ).show()
+
+                            navController.navigate(
+                                "login/estudiante"
+                            ) {
+
+                                popUpTo("inicio") {
+                                    inclusive = false
+                                }
+
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                },
+
+                onVolver = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // MENU ESTUDIANTE
         composable("estudiante") {
 
             EstudianteScreen(
@@ -169,6 +227,24 @@ fun AppNavigation() {
                                 "actividad-otra/$id"
                             )
                         }
+                    }
+                },
+
+                onAbrirPruebaFinal = { id ->
+
+                    val disponible = estaAsignaturaDisponible(
+                        docenteViewModel.asignaciones[id]
+                    )
+
+                    val completada = if (id == "matematica") {
+                        estudianteViewModel.resultadoMatematica.completada
+                    } else {
+                        estudianteViewModel.resultadosPorAsignatura[id]
+                            ?.completada == true
+                    }
+
+                    if (disponible && completada) {
+                        navController.navigate("prueba-final/$id")
                     }
                 },
 
@@ -216,7 +292,7 @@ fun AppNavigation() {
             }
         }
 
-        // OTRAS TRES ASIGNATURAS
+        // ACTIVIDADES DE LAS OTRAS ASIGNATURAS
         composable("actividad-otra/{id}") { entrada ->
 
             val id = entrada.arguments
@@ -274,12 +350,57 @@ fun AppNavigation() {
                     )
                 },
 
+                onAbrirInforme = {
+                    navController.navigate("informe-pedagogico")
+                },
+
                 onVolver = {
 
                     navController.popBackStack(
                         "inicio",
                         false
                     )
+                }
+            )
+        }
+
+        // PRUEBA FINAL DE DEMOSTRACION DEL ESTUDIANTE
+        composable("prueba-final/{id}") { entrada ->
+
+            val id = entrada.arguments?.getString("id") ?: ""
+            val asignacion = docenteViewModel.asignaciones[id]
+
+            val disponible = estaAsignaturaDisponible(asignacion)
+            val practicaCompletada = if (id == "matematica") {
+                estudianteViewModel.resultadoMatematica.completada
+            } else {
+                estudianteViewModel.resultadosPorAsignatura[id]
+                    ?.completada == true
+            }
+
+            if (disponible && practicaCompletada) {
+                PruebaFinalScreen(
+                    asignaturaId = id,
+                    maxIntentos = asignacion?.maxIntentos ?: 2,
+                    onVolver = {
+                        navController.popBackStack()
+                    }
+                )
+            } else {
+                PantallaPruebaBloqueada(
+                    onVolver = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+        }
+
+        // INFORME PEDAGOGICO DE DEMOSTRACION
+        composable("informe-pedagogico") {
+
+            InformePedagogicoScreen(
+                onVolver = {
+                    navController.popBackStack()
                 }
             )
         }
@@ -291,6 +412,7 @@ fun AppNavigation() {
                 viewModel = utpViewModel,
 
                 onVolver = {
+
                     navController.popBackStack(
                         "inicio",
                         false
@@ -330,38 +452,6 @@ fun PantallaActividadBloqueada(
 
         Button(onClick = onVolver) {
             Text("Volver")
-        }
-    }
-}
-
-@Composable
-fun PantallaPerfil(
-    titulo: String,
-    descripcion: String,
-    onVolver: () -> Unit
-) {
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-
-        Text(
-            text = titulo,
-            style = MaterialTheme.typography.headlineMedium
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        Text(text = descripcion)
-
-        Spacer(Modifier.height(24.dp))
-
-        Button(onClick = onVolver) {
-            Text("Volver al inicio")
         }
     }
 }

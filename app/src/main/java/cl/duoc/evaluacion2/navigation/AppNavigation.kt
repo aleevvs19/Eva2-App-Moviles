@@ -23,6 +23,8 @@ import cl.duoc.evaluacion2.screens.EstudianteScreen
 import cl.duoc.evaluacion2.screens.ActividadMatematicaScreen
 import cl.duoc.evaluacion2.screens.ActividadOtraAsignaturaScreen
 import cl.duoc.evaluacion2.screens.DocenteScreen
+import cl.duoc.evaluacion2.screens.ConfiguracionPruebaScreen
+import cl.duoc.evaluacion2.screens.GestionUnidadesScreen
 import cl.duoc.evaluacion2.screens.UTPScreen
 import cl.duoc.evaluacion2.screens.PruebaFinalScreen
 import cl.duoc.evaluacion2.screens.PantallaPruebaBloqueada
@@ -353,6 +355,9 @@ fun AppNavigation() {
                 onAbrirInforme = {
                     navController.navigate("informe-pedagogico")
                 },
+                onAbrirConfiguracion = {
+                    navController.navigate("configuracion-prueba")
+                },
 
                 onVolver = {
 
@@ -361,6 +366,17 @@ fun AppNavigation() {
                         false
                     )
                 }
+            )
+        }
+
+        // NUEVA PANTALLA DOCENTE: CONFIGURACION POR UNIDAD
+        composable("configuracion-prueba") {
+            ConfiguracionPruebaScreen(
+                asignaciones = docenteViewModel.asignaciones,
+                onGuardar = { id, fecha, intentos ->
+                    docenteViewModel.guardarAsignacion(id, fecha, intentos)
+                },
+                onVolver = { navController.popBackStack() }
             )
         }
 
@@ -405,11 +421,21 @@ fun AppNavigation() {
             )
         }
 
+        // NUEVA PANTALLA UTP: TRES UNIDADES EDITABLES
+        composable("gestion-unidades") {
+            GestionUnidadesScreen(
+                onVolver = { navController.popBackStack() }
+            )
+        }
+
         // PANEL JEFATURA UTP
         composable("utp") {
 
             UTPScreen(
                 viewModel = utpViewModel,
+                onAbrirUnidades = {
+                    navController.navigate("gestion-unidades")
+                },
 
                 onVolver = {
 

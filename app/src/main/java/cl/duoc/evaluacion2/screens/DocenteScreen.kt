@@ -1,5 +1,6 @@
-
 package cl.duoc.evaluacion2.screens
+
+import android.app.DatePickerDialog
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,8 +11,11 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import java.util.Calendar
+import java.util.Locale
 
 import cl.duoc.evaluacion2.viewmodel.AsignacionDocente
 import cl.duoc.evaluacion2.viewmodel.objetivosDocenteDemo
@@ -21,8 +25,11 @@ fun DocenteScreen(
     asignaciones: Map<String, AsignacionDocente>,
     onGuardar: (String, String, Int) -> Boolean,
     onAbrirInforme: () -> Unit,
+    onAbrirConfiguracion: () -> Unit,
     onVolver: () -> Unit
 ) {
+
+    val context = LocalContext.current
 
     // ASIGNATURA SELECCIONADA
     var asignaturaId by rememberSaveable {
@@ -103,6 +110,16 @@ fun DocenteScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // NUEVA PANTALLA: ELEGIR UNIDAD, FECHA E INTENTOS
+        Button(
+            onClick = onAbrirConfiguracion,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("📅 Configuración de pruebas y unidades")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // CONFIGURACION DE ACTIVIDADES
         Text(
             text = "Configurar actividad y prueba",
@@ -179,25 +196,73 @@ fun DocenteScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // FORMULARIO DE FECHA
-        OutlinedTextField(
-            value = fecha,
-            onValueChange = {
-                fecha = it
-                mensaje = ""
-                guardado = false
+        // FECHA SELECCIONADA DESDE UN CALENDARIO
+        Text(
+            text = "Fecha de disponibilidad",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedButton(
+            onClick = {
+                // Usar la fecha guardada o la fecha de hoy al abrir el calendario.
+                val calendario = Calendar.getInstance()
+                val partes = fecha.split("-")
+                if (partes.size == 3) {
+                    val anio = partes[0].toIntOrNull()
+                    val mes = partes[1].toIntOrNull()
+                    val dia = partes[2].toIntOrNull()
+                    if (anio != null && mes != null && dia != null &&
+                        mes in 1..12 && dia in 1..31
+                    ) {
+                        calendario.set(anio, mes - 1, dia)
+                    }
+                }
+
+                val selector = DatePickerDialog(
+                    context,
+                    { _, anio, mes, dia ->
+                        // Mantener AAAA-MM-DD para no romper el guardado existente.
+                        fecha = String.format(
+                            Locale.US,
+                            "%04d-%02d-%02d",
+                            anio,
+                            mes + 1,
+                            dia
+                        )
+                        mensaje = ""
+                        guardado = false
+                    },
+                    calendario.get(Calendar.YEAR),
+                    calendario.get(Calendar.MONTH),
+                    calendario.get(Calendar.DAY_OF_MONTH)
+                )
+
+                // Solo permitir fechas actuales o futuras.
+                selector.datePicker.minDate = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+
+                selector.show()
             },
-            label = {
-                Text("Fecha de disponibilidad")
-            },
-            placeholder = {
-                Text("AAAA-MM-DD")
-            },
-            supportingText = {
-                Text("Ejemplo: 2026-11-10")
-            },
-            singleLine = true,
             modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = if (fecha.isBlank()) {
+                    "📅 Seleccionar fecha"
+                } else {
+                    "📅 ${fechaLegible(fecha)}"
+                }
+            )
+        }
+
+        Text(
+            text = "Toca el botón para elegir un día en el calendario.",
+            style = MaterialTheme.typography.bodySmall
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -322,7 +387,7 @@ fun DocenteScreen(
 
                             Text(
                                 text = "Disponible desde: " +
-                                        asignacion.fecha
+                                        fechaLegible(asignacion.fecha)
                             )
 
                             Spacer(modifier = Modifier.height(6.dp))
@@ -395,5 +460,17 @@ fun DocenteScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+// Formato visible: DD/MM/AAAA. El valor almacenado sigue siendo AAAA-MM-DD.
+private fun fechaLegible(fecha: String): String {
+    val partes = fecha.split("-")
+    return if (partes.size == 3 &&
+        partes[0].length == 4 && partes[1].length == 2 && partes[2].length == 2
+    ) {
+        "${partes[2]}/${partes[1]}/${partes[0]}"
+    } else {
+        fecha
     }
 }
